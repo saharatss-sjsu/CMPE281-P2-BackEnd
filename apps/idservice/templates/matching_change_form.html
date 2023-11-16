@@ -1,0 +1,130 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls %}
+
+{% block field_sets %}
+{% if add %}
+
+<div id="errornote"></div>
+<fieldset class="module aligned ">
+	<div class="form-row field-driver_license">
+		<div>
+			<label class="required" for="id_driver_license">1) Driver license:</label>
+			<input type="text" name="driver_license" class="vTextField" maxlength="20" required="" id="id_driver_license">
+		</div>
+	</div>
+	<div class="form-row">
+		<label class="required" for="id_driver_license">2) Image:</label>
+		<input type="file" onchange="onInputChange(this)">
+	</div>
+</fieldset>
+
+<script>
+
+	const BASE_BACKEND_URL = `${window.location.protocol}//${window.location.hostname}:${window.location.port}`;
+
+	
+	function directUploadStart({fileName, fileType, fileSize}){
+		return fetch(`${BASE_BACKEND_URL}/api/id/matching/upload/`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				driver_license: document.getElementById('id_driver_license').value,
+				image:{
+					name: fileName,
+					type: fileType,
+					size: fileSize,
+				}
+			}),
+		});
+	}
+	
+	function directUploadDo(data, file){
+		const formData = new FormData();
+	
+		for (const key in data?.fields) {
+			formData.append(key, data.fields[key]);
+		}
+		formData.append('file', file);
+	
+		formData.forEach((value,key)=>console.log(key,value))
+	
+		return fetch(data.url, {
+			method: "POST",
+			headers: {
+				'Access-Control-Allow-Origin': '*',
+			},
+			body: formData,
+		});
+	}
+	
+	function directUploadFinish(file_id){
+		return fetch(`${BASE_BACKEND_URL}/api/file/upload/finish/`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				id: file_id
+			}),
+		});
+	};
+	
+	const onInputChange = (element) => {
+		const file = element.files[0];
+		if (file) {
+			directUploadStart({
+				fileName: file.name,
+				fileType: file.type,
+				fileSize: file.size
+			})
+			.then((response) => {
+				console.log(response);
+				if(response.status == 404) return response.text();
+				return response.json();
+			})
+			.then((data) => {
+				if(typeof(data) == 'string') document.getElementById('errornote').innerHTML = `<p class="errornote">${data}</p>`;
+				else{
+					directUploadDo(data, file)
+						.then(() => {
+							directUploadFinish(data.file.id);
+						})
+						.then(() => {
+							console.log('File upload completed!');
+							window.location.replace(`/admin/idservice/matching/${data.matching.id}/change/`)
+						})
+				}
+			})
+			.catch((error) => {
+				console.log(error);
+				console.log('File upload failed!');
+			});
+		}
+	};
+	
+	
+</script>
+
+{% else %}
+{% for fieldset in adminform %}
+  {% include "admin/includes/fieldset.html" %}
+{% endfor %}
+{% endif %}
+{% endblock %}
+
+{% block after_field_sets %}
+{% if not add %}
+<fieldset class="module aligned ">
+	<div class="form-row">
+		<label class="required" for="tag">Preview:</label>
+		<img src="https://d245rtkoblgto6.cloudfront.net/{{original.image.path}}" style="width: 200px;">
+	</div>
+</fieldset>
+{% endif %}
+{% endblock %}
+
+{% block submit_buttons_bottom %}
+{% if not add %}{{ block.super }}{% endif %}
+{% endblock %}
