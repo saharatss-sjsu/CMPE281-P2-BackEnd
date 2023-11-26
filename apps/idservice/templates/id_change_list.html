@@ -3,6 +3,87 @@
 
 
 {% block object-tools-items %}
-<li><a href="/admin/idservice/id/add/" class="addlink">Add id</a></li>
-<li><a href="/admin/idservice/id/add/" class="addlink">Auto generate id</a></li>
+<li><a href="/admin/idservice/id/add/" class="addlink">Add id manually</a></li>
+<li><a href="#" class="addlink" onclick="document.getElementById('id_upload_image').click()">Add id with image</a></li>
+
+<input style="display: none;" id="id_upload_image" type="file" onchange="onInputChange(this)">
+
+<script>
+
+	const BASE_BACKEND_URL = `${window.location.protocol}//${window.location.hostname}:${window.location.port}`;
+
+	
+	function directUploadStart({fileName, fileType, fileSize}){
+		return fetch(`${BASE_BACKEND_URL}/api/id/id/upload/`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				name: fileName,
+				type: fileType,
+				size: fileSize,
+			}),
+		});
+	}
+	
+	function directUploadDo(data, file){
+		const formData = new FormData();
+	
+		for (const key in data?.fields) {
+			formData.append(key, data.fields[key]);
+		}
+		formData.append('file', file);
+	
+		formData.forEach((value,key)=>console.log(key,value))
+	
+		return fetch(data.url, {
+			method: "POST",
+			headers: {
+				'Access-Control-Allow-Origin': '*',
+			},
+			body: formData,
+		});
+	}
+	
+	function directUploadFinish(file_id){
+		return fetch(`${BASE_BACKEND_URL}/api/file/upload/finish/`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				id: file_id
+			}),
+		});
+	};
+	
+	const onInputChange = (element) => {
+		const file = element.files[0];
+		if (file) {
+			directUploadStart({
+				fileName: file.name,
+				fileType: file.type,
+				fileSize: file.size
+			})
+			.then((response) => response.json())
+			.then((data) => {
+				directUploadDo(data, file)
+					.then(() => {
+						directUploadFinish(data.file.id);
+					})
+					.then(() => {
+						console.log('File upload completed!');
+						window.location.replace(`/admin/idservice/id/${data.id.id}/change/`)
+					})
+			})
+			.catch((error) => {
+				console.log(error);
+				console.log('File upload failed!');
+			});
+		}
+	};
+	
+	
+</script>
 {% endblock %}

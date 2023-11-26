@@ -10,7 +10,7 @@ class IDAdmin(admin.ModelAdmin):
 	list_display = ('driver_license', 'first_name', 'last_name', 'sex', 'eyes', 'hair', 'vehicle_class', 'has_image', 'created')
 	ordering = ('created',)
 	list_filter = ('vehicle_class', 'sex')
-	# change_list_template = 'id_change_list.html'
+	change_list_template = 'id_change_list.html'
 	change_form_template = 'id_change_form.html'
 admin.site.register(models.ID, IDAdmin)
 

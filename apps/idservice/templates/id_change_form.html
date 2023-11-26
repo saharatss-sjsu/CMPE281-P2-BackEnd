@@ -6,8 +6,20 @@
 <fieldset class="module aligned ">
 	<div class="form-row">
 		<label class="required" for="tag">Preview:</label>
-		<img src="https://d245rtkoblgto6.cloudfront.net/{{original.image.path}}" style="width: 200px;">
+		<a href="https://d245rtkoblgto6.cloudfront.net/{{original.image.path}}" target="_blank"><img src="https://d245rtkoblgto6.cloudfront.net/{{original.image.path}}" style="width: 300px;"></a>
+	</div>
+	<div class="form-row">
+		<label class="required" for="tag">OCR:</label>
+		<a href="https://d245rtkoblgto6.cloudfront.net/user_upload/debug/{{original.image.name}}" target="_blank"><img src="https://d245rtkoblgto6.cloudfront.net/user_upload/debug/{{original.image.name}}" style="width: 300px;"></a>
 	</div>
 </fieldset>
+
+<script>
+	if("{{original.driver_license}}".includes("$null")){
+		setTimeout(()=>{
+			location.reload();
+		}, 5000)
+	}
+</script>
 {% endif %}
 {% endblock %}

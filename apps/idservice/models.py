@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 import uuid
 
 from apps.fileservice.models import File
+from apps.fileservice.connector import s3_object_delete
 
 SEX = (('M','Male'), ('F','Female'))
 COLOR = (('SIL','Aluminum'),
@@ -39,6 +40,11 @@ COLOR = (('SIL','Aluminum'),
 ('WHI','White'),
 ('YEL','Yellow'))
 
+class IDModelQuerySet(models.query.QuerySet):
+	def delete(self):
+		for obj in self.all():
+			obj.delete()
+
 class ID(models.Model):
 	id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 	driver_license  = models.CharField(max_length=20)
@@ -62,6 +68,10 @@ class ID(models.Model):
 	created  = models.DateTimeField(auto_now_add=True)
 	updated  = models.DateTimeField(auto_now=True)
 
+	result_ocr = models.JSONField(blank=True, null=True)
+
+	objects = IDModelQuerySet.as_manager()
+
 	def __str__(self):
 		return self.driver_license
 	class Meta:
@@ -69,6 +79,8 @@ class ID(models.Model):
 		verbose_name_plural = 'IDs'
 
 	def delete(self, using=None, keep_parents=False):
+		self.image.delete()
+		s3_object_delete(file_path=f"user_upload/debug/{self.image.name}")
 		super().delete()
 
 	def dict(self):
