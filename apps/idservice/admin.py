@@ -16,8 +16,8 @@ admin.site.register(models.ID, IDAdmin)
 
 
 class MatchingAdmin(admin.ModelAdmin):
-	list_display = ('driver_license', 'creator', 'created', 'face_similarity' ,'is_matched')
-	readonly_fields=('id','driver_license', 'creator','created','resulted','is_matched','face_similarity','result_face','result_ocr','image')
+	list_display = ('driver_license', 'creator', 'created', 'resulted', 'face_similarity' ,'is_matched')
+	readonly_fields=('id','driver_license', 'creator','created','resulted','is_matched','face_similarity','result_face','result_ocr','result_matching','image')
 	ordering = ('created',)
 	list_filter = ('is_matched',)
 	change_form_template = 'matching_change_form.html'

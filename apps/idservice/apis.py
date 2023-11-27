@@ -14,6 +14,17 @@ import json
 import datetime
 
 @csrf_exempt
+@require_http_methods(["GET","POST"])
+def IDGetImagePath(request):
+	try:
+		data = json.loads(request.body)
+		driver_license = data['driver_license']
+	except: return HttpResponse(status=400)
+	try: id_obj = IDServiceModel.ID.objects.get(driver_license=driver_license)
+	except IDServiceModel.ID.DoesNotExist: return HttpResponse(status=404)
+	return JsonResponse({"path": id_obj.image.path})
+
+@csrf_exempt
 @require_http_methods(["POST"])
 def IDImageUpload(request):
 	if not request.user.is_authenticated: return HttpResponse(status=401)
@@ -76,19 +87,16 @@ def MatchingImageUpload(request):
 	if not request.user.is_authenticated: return HttpResponse(status=401)
 	try:
 		data  = json.loads(request.body)
-		driver_license = data['driver_license']
-		image          = data['image']
+		file_name = data['name']
+		file_type = data['type']
+		file_size = data['size']
 	except: return HttpResponse(status=400)
-	file_name = image.get('name')
-	file_type = image.get('type')
-	file_size = image.get('size')
 	if file_size > settings.UPLOAD_MAX_FILE_SIZE: return HttpResponse(f"{file_name} is too large", status=406)
-	try: IDServiceModel.ID.objects.get(driver_license=driver_license)
-	except IDServiceModel.ID.DoesNotExist: return HttpResponse(status=404, content="Driver license number missed match")
-	matching = IDServiceModel.Matching(driver_license=driver_license, creator=request.user)
 	service = FileDirectUploadService(request.user)
 	presigned_data = service.start('matching',file_name, file_type, file_size)
-	matching.image = FileServiceModel.File.objects.get(id=presigned_data['file']['id'])
+	image_obj      = FileServiceModel.File.objects.get(id=presigned_data['file']['id'])
+	matching       = IDServiceModel.Matching(driver_license=f"$null-{image_obj.name[:10]}", creator=request.user)
+	matching.image = image_obj
 	matching.save()
 	presigned_data['matching'] = matching.dict()
 	return JsonResponse(data=presigned_data)
@@ -98,18 +106,40 @@ def MatchingImageUpload(request):
 def MatchingResultUpload(request):
 	try:
 		data = json.loads(request.body)
-		matching_image_name = data['matching_image_name']
-		matching_result_face = data.get('result_face')
+		matching_image_name  = data['matching_image_name']
+		matching_result_face = data['result_face']
+		matching_result_ocr  = data['result_ocr']
+		driver_license = matching_result_ocr['driver_license']['TextValue']
 	except: return HttpResponse(status=400)
 	try: image_obj = FileServiceModel.File.objects.get(name=matching_image_name)
 	except FileServiceModel.File.DoesNotExist: return HttpResponse(status=404)
 	try: matching = IDServiceModel.Matching.objects.get(image=image_obj)
 	except IDServiceModel.Matching.DoesNotExist: return HttpResponse(status=404)
-	matching.result_face = matching_result_face
+	matching.driver_license = driver_license
+	matching.result_face    = matching_result_face
+	matching.result_ocr     = matching_result_ocr
+	matching.resulted       = datetime.datetime.utcnow()
 	max_similarity = 0
 	for face in matching_result_face['FaceMatches']:
 		if face['Similarity'] > max_similarity:
 			max_similarity = face['Similarity']
 	matching.face_similarity = max_similarity
 	matching.save()
+
+	try: id_obj = IDServiceModel.ID.objects.get(driver_license=driver_license)
+	except IDServiceModel.ID.DoesNotExist: return HttpResponse(status=404)
+	result_matching = {}
+	result_matching['face_similarity'] = matching.face_similarity >= 80
+	result_matching['first_name'] = id_obj.first_name == matching_result_ocr['first_name']['TextValue']
+	result_matching['last_name']  = id_obj.last_name  == matching_result_ocr['last_name']['TextValue']
+
+	_is_matched = True
+	for value in result_matching.values():
+		if value is False:
+			_is_matched = False
+			break
+	matching.is_matched      = _is_matched
+	matching.result_matching = result_matching
+	matching.save()
+
 	return JsonResponse(matching.dict())

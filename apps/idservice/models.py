@@ -91,6 +91,7 @@ class ID(models.Model):
 			'last_name':  self.last_name,
 			'created': self.created,
 			'updated': self.updated,
+			'image': self.image.dict(),
 		}
 	
 
@@ -105,11 +106,22 @@ class Matching(models.Model):
 	face_similarity  = models.FloatField(blank=True, null=True)
 	result_face      = models.JSONField(blank=True, null=True)
 	result_ocr       = models.JSONField(blank=True, null=True)
+	result_matching  = models.JSONField(blank=True, null=True)
 	is_matched       = models.BooleanField(blank=True, null=True)
 
 	creator          = models.ForeignKey(User, on_delete=models.CASCADE)
 	created          = models.DateTimeField(auto_now_add=True)
 	resulted         = models.DateTimeField(blank=True, null=True)
+
+	objects = IDModelQuerySet.as_manager()
+
+	def __str__(self):
+		return self.driver_license
+
+	def delete(self, using=None, keep_parents=False):
+		self.image.delete()
+		s3_object_delete(file_path=f"user_upload/debug/{self.image.name}")
+		super().delete()
 
 	def dict(self):
 		return {
