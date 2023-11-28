@@ -125,8 +125,14 @@ class Matching(models.Model):
 
 	def dict(self):
 		return {
-			'id': self.id,
-			'driver_license': self.driver_license,
-			'image': self.image.dict(),
-			'created': self.created,
+			'id':              self.id,
+			'driver_license':  self.driver_license,
+			'image':           self.image.dict(),
+			'face_similarity': self.face_similarity,
+			'result_face':     self.result_face,
+			'result_ocr':      self.result_ocr,
+			'result_matching': self.result_matching,
+			'is_matched':      self.is_matched,
+			'created':         self.created,
+			'resulted':        self.resulted,
 		}

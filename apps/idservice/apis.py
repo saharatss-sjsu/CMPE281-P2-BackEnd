@@ -81,6 +81,27 @@ def IDResultUpload(request):
 	id_obj.save()
 	return JsonResponse(id_obj.dict())
 
+
+@csrf_exempt
+@require_http_methods(["GET","POST"])
+def MatchingGet(request):
+	if not request.user.is_authenticated: return HttpResponse(status=401)
+	try:
+		data = json.loads(request.body)
+		matching_id = data['id']
+	except: return HttpResponse(status=400)
+	try: matching_obj = IDServiceModel.Matching.objects.get(id=matching_id)
+	except IDServiceModel.Matching.DoesNotExist: return HttpResponse(status=404)
+	if matching_obj.creator != request.user: return HttpResponse(status=403)
+	return JsonResponse({"matching": matching_obj.dict()})
+
+@csrf_exempt
+@require_http_methods(["GET","POST"])
+def MatchingGetList(request):
+	if not request.user.is_authenticated: return HttpResponse(status=401)
+	matching_objs = IDServiceModel.Matching.objects.filter(creator=request.user)
+	return JsonResponse({"matchings": list(map(lambda x: x.dict(), matching_objs))})
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def MatchingImageUpload(request):
@@ -130,8 +151,9 @@ def MatchingResultUpload(request):
 	except IDServiceModel.ID.DoesNotExist: return HttpResponse(status=404)
 	result_matching = {}
 	result_matching['face_similarity'] = matching.face_similarity >= 80
-	result_matching['first_name'] = id_obj.first_name == matching_result_ocr['first_name']['TextValue']
-	result_matching['last_name']  = id_obj.last_name  == matching_result_ocr['last_name']['TextValue']
+	result_matching['first_name']    = id_obj.first_name == matching_result_ocr['first_name']['TextValue']
+	result_matching['last_name']     = id_obj.last_name == matching_result_ocr['last_name']['TextValue']
+	result_matching['vehicle_class'] = id_obj.vehicle_class == matching_result_ocr['vehicle_class']['TextValue']
 
 	_is_matched = True
 	for value in result_matching.values():
