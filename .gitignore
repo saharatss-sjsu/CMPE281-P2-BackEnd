@@ -8,4 +8,5 @@ credentials/
 static/admin/
 setup/setup_prd.sh
 setup/run_debug.sh
-Lambda-FaceComparison/*.jpeg
+
+Lambda-AI/python/*
