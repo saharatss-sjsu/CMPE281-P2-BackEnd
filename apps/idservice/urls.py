@@ -8,6 +8,7 @@ urlpatterns = [
 	path("id/update/result/", apis.IDResultUpload),
 	path("matching/get/", apis.MatchingGet),
 	path("matching/getlist/", apis.MatchingGetList),
+	path("matching/delete/", apis.MatchingDelete),
 	path("matching/upload/", apis.MatchingImageUpload),
 	path("matching/update/result/", apis.MatchingResultUpload),
 ]

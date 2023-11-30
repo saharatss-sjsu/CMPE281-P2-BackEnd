@@ -1,6 +1,7 @@
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.conf import settings
+from django.utils import timezone
 
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -13,6 +14,12 @@ from apps.fileservice.services import FileDirectUploadService
 import json
 import datetime
 
+def getTextValueIfExist(result_ocr, key, forceUppercase=True):
+	output = result_ocr.get(key)
+	if output is None: return None
+	output = output.get('TextValue')
+	return output.upper() if forceUppercase else output
+
 @csrf_exempt
 @require_http_methods(["GET","POST"])
 def IDGetImagePath(request):
@@ -20,8 +27,9 @@ def IDGetImagePath(request):
 		data = json.loads(request.body)
 		driver_license = data['driver_license']
 	except: return HttpResponse(status=400)
-	try: id_obj = IDServiceModel.ID.objects.get(driver_license=driver_license)
-	except IDServiceModel.ID.DoesNotExist: return HttpResponse(status=404)
+	id_obj = IDServiceModel.ID.objects.filter(driver_license=driver_license)
+	if id_obj.count() == 0: return HttpResponse(status=404)
+	else: id_obj = id_obj[0]
 	return JsonResponse({"path": id_obj.image.path})
 
 @csrf_exempt
@@ -35,6 +43,7 @@ def IDImageUpload(request):
 		file_size = data['size']
 	except: return HttpResponse(status=400)
 	if file_size > settings.UPLOAD_MAX_FILE_SIZE: return HttpResponse(f"{file_name} is too large", status=406)
+	if file_type not in ['image/jpeg','image/png']: return HttpResponse(f"Only jpg, png are supported but received \"{file_type}\".", status=406)
 	service = FileDirectUploadService(request.user)
 	presigned_data = service.start('id', file_name, file_type, file_size)
 	image_obj      = FileServiceModel.File.objects.get(id=presigned_data['file']['id'])
@@ -56,26 +65,26 @@ def IDResultUpload(request):
 	except FileServiceModel.File.DoesNotExist: return HttpResponse(status=404)
 	try: id_obj = IDServiceModel.ID.objects.get(image=image_obj)
 	except IDServiceModel.ID.DoesNotExist: return HttpResponse(status=404)
-	id_obj.driver_license = result_ocr['driver_license']['TextValue']
 	id_obj.result_ocr     = result_ocr
-	id_obj.vehicle_class  = result_ocr['vehicle_class']['TextValue']
-	id_obj.first_name     = result_ocr['first_name']['TextValue']
-	id_obj.last_name      = result_ocr['last_name']['TextValue']
-	id_obj.eyes           = result_ocr['eyes']['TextValue']
-	id_obj.hair           = result_ocr['hair']['TextValue']
-	# id_obj.sex            = result_ocr['sex']['TextValue']
+	id_obj.driver_license = getTextValueIfExist(result_ocr, 'driver_license')
+	id_obj.vehicle_class  = getTextValueIfExist(result_ocr, 'vehicle_class')
+	id_obj.first_name     = getTextValueIfExist(result_ocr, 'first_name')
+	id_obj.last_name      = getTextValueIfExist(result_ocr, 'last_name')
+	id_obj.eyes           = getTextValueIfExist(result_ocr, 'eyes')
+	id_obj.hair           = getTextValueIfExist(result_ocr, 'hair')
+	id_obj.sex            = getTextValueIfExist(result_ocr, 'sex')
 
 	try:
-		_height = result_ocr['height']['TextValue'].replace('\'','').replace('"','').split('-')
+		_height = getTextValueIfExist(result_ocr,'height').replace('\'','').replace('"','').split('-')
 		id_obj.height = int(_height[0])+int(_height[1])/100
 	except: pass
 
-	try: id_obj.weight = int(result_ocr['weight']['TextValue'].replace('lb',''))
+	try: id_obj.weight = int(getTextValueIfExist(result_ocr,'weight').replace('LB',''))
 	except: pass
 
 	try:
-		id_obj.date_of_birth   = datetime.datetime.strptime(result_ocr['date_of_birth']['TextValue'], "%m/%d/%Y").date()
-		id_obj.expiration_date = datetime.datetime.strptime(result_ocr['expiration_date']['TextValue'], "%m/%d/%Y").date()
+		id_obj.date_of_birth   = datetime.datetime.strptime(getTextValueIfExist(result_ocr,'date_of_birth'), "%m/%d/%Y").date()
+		id_obj.expiration_date = datetime.datetime.strptime(getTextValueIfExist(result_ocr,'expiration_date'), "%m/%d/%Y").date()
 	except: pass
 
 	id_obj.save()
@@ -103,6 +112,21 @@ def MatchingGetList(request):
 	return JsonResponse({"matchings": list(map(lambda x: x.dict(), matching_objs))})
 
 @csrf_exempt
+@require_http_methods(["DELETE"])
+def MatchingDelete(request):
+	if not request.user.is_authenticated: return HttpResponse(status=401)
+	try:
+		data = json.loads(request.body)
+		matching_id = data['id']
+	except: return HttpResponse(status=400)
+	try: matching_obj = IDServiceModel.Matching.objects.get(id=matching_id)
+	except IDServiceModel.Matching.DoesNotExist: return HttpResponse(status=404)
+	if matching_obj.creator != request.user: return HttpResponse(status=403)
+	matching_obj.delete()
+	return JsonResponse({"matching": {"id":matching_id}})
+
+
+@csrf_exempt
 @require_http_methods(["POST"])
 def MatchingImageUpload(request):
 	if not request.user.is_authenticated: return HttpResponse(status=401)
@@ -113,6 +137,7 @@ def MatchingImageUpload(request):
 		file_size = data['size']
 	except: return HttpResponse(status=400)
 	if file_size > settings.UPLOAD_MAX_FILE_SIZE: return HttpResponse(f"{file_name} is too large", status=406)
+	if file_type not in ['image/jpeg','image/png']: return HttpResponse(f"Only jpg, png are supported but received \"{file_type}\".", status=406)
 	service = FileDirectUploadService(request.user)
 	presigned_data = service.start('matching',file_name, file_type, file_size)
 	image_obj      = FileServiceModel.File.objects.get(id=presigned_data['file']['id'])
@@ -130,7 +155,7 @@ def MatchingResultUpload(request):
 		matching_image_name  = data['matching_image_name']
 		matching_result_face = data['result_face']
 		matching_result_ocr  = data['result_ocr']
-		driver_license = matching_result_ocr['driver_license']['TextValue']
+		driver_license       = getTextValueIfExist(matching_result_ocr, 'driver_license')
 	except: return HttpResponse(status=400)
 	try: image_obj = FileServiceModel.File.objects.get(name=matching_image_name)
 	except FileServiceModel.File.DoesNotExist: return HttpResponse(status=404)
@@ -139,7 +164,8 @@ def MatchingResultUpload(request):
 	matching.driver_license = driver_license
 	matching.result_face    = matching_result_face
 	matching.result_ocr     = matching_result_ocr
-	matching.resulted       = datetime.datetime.utcnow()
+	matching.resulted       = timezone.now()
+
 	max_similarity = 0
 	for face in matching_result_face['FaceMatches']:
 		if face['Similarity'] > max_similarity:
@@ -147,13 +173,48 @@ def MatchingResultUpload(request):
 	matching.face_similarity = max_similarity
 	matching.save()
 
-	try: id_obj = IDServiceModel.ID.objects.get(driver_license=driver_license)
-	except IDServiceModel.ID.DoesNotExist: return HttpResponse(status=404)
 	result_matching = {}
-	result_matching['face_similarity'] = matching.face_similarity >= 80
-	result_matching['first_name']    = id_obj.first_name == matching_result_ocr['first_name']['TextValue']
-	result_matching['last_name']     = id_obj.last_name == matching_result_ocr['last_name']['TextValue']
-	result_matching['vehicle_class'] = id_obj.vehicle_class == matching_result_ocr['vehicle_class']['TextValue']
+	id_obj = IDServiceModel.ID.objects.filter(driver_license=driver_license)
+	if id_obj.count() > 0: # found
+		id_obj = id_obj[0]
+		result_matching['driver_license']  = True
+		result_matching['face_similarity'] = matching.face_similarity >= 80
+		result_matching['first_name']      = id_obj.first_name    == getTextValueIfExist(matching_result_ocr, 'first_name')
+		result_matching['last_name']       = id_obj.last_name     == getTextValueIfExist(matching_result_ocr, 'last_name')
+		result_matching['vehicle_class']   = id_obj.vehicle_class == getTextValueIfExist(matching_result_ocr, 'vehicle_class')
+		result_matching['eyes']            = id_obj.eyes          == getTextValueIfExist(matching_result_ocr, 'eyes')
+		result_matching['hair']            = id_obj.hair          == getTextValueIfExist(matching_result_ocr, 'hair')
+		result_matching['sex']             = id_obj.sex           == getTextValueIfExist(matching_result_ocr, 'sex')
+
+		try:
+			_height = getTextValueIfExist(matching_result_ocr,'height').replace('\'','').replace('"','').split('-')
+			result_matching['height'] = id_obj.height == int(_height[0])+int(_height[1])/100
+		except: pass
+
+		try:
+			_weight = int(getTextValueIfExist(matching_result_ocr,'weight').replace('LB',''))
+			result_matching['weight'] = id_obj.weight == _weight
+		except: pass
+
+		try:
+			result_matching['date_of_birth']   = id_obj.date_of_birth   == datetime.datetime.strptime(getTextValueIfExist(matching_result_ocr,'date_of_birth'), "%m/%d/%Y").date()
+			result_matching['expiration_date'] = id_obj.expiration_date == datetime.datetime.strptime(getTextValueIfExist(matching_result_ocr,'expiration_date'), "%m/%d/%Y").date()
+		except: pass
+
+	else:
+		result_matching['driver_license']  = False
+		result_matching['face_similarity'] = False
+		result_matching['first_name']      = False
+		result_matching['last_name']       = False
+		result_matching['vehicle_class']   = False
+		result_matching['eyes']            = False
+		result_matching['hair']            = False
+		result_matching['sex']             = False
+		result_matching['height']          = False
+		result_matching['weight']          = False
+		result_matching['date_of_birth']   = False
+		result_matching['expiration_date'] = False
+
 
 	_is_matched = True
 	for value in result_matching.values():

@@ -7,7 +7,9 @@ class IDAdmin(admin.ModelAdmin):
 		return obj.image is not None
 	has_image.boolean = True
 
-	list_display = ('driver_license', 'first_name', 'last_name', 'sex', 'eyes', 'hair', 'vehicle_class', 'has_image', 'created')
+	def _driver_license(self, obj): return obj.driver_license if len(obj.driver_license) != 0 else "(null)"
+
+	list_display = ('_driver_license', 'first_name', 'last_name', 'sex', 'eyes', 'hair', 'vehicle_class', 'has_image', 'created')
 	ordering = ('created',)
 	list_filter = ('vehicle_class', 'sex')
 	change_list_template = 'id_change_list.html'
@@ -16,10 +18,12 @@ admin.site.register(models.ID, IDAdmin)
 
 
 class MatchingAdmin(admin.ModelAdmin):
-	list_display = ('driver_license', 'creator', 'created', 'resulted', 'face_similarity' ,'is_matched')
-	# readonly_fields=('id','created','resulted','face_similarity','result_face','result_ocr','result_matching','image')
+	def _driver_license(self, obj): return obj.driver_license if len(obj.driver_license) != 0 else "(null)"
+
+	list_display = ('_driver_license', 'creator', 'created', 'resulted', 'face_similarity' ,'is_matched')
+	readonly_fields=('id',)
 	# readonly_fields=('id','driver_license', 'creator','created','resulted','is_matched','face_similarity','result_face','result_ocr','result_matching','image')
 	ordering = ('-created',)
-	list_filter = ('is_matched',)
+	list_filter = ('is_matched','creator')
 	change_form_template = 'matching_change_form.html'
 admin.site.register(models.Matching, MatchingAdmin)
