@@ -1,11 +1,11 @@
 #!/bin/bash
 cd $(dirname "$0")
 cd ../..
-zip -r server_backend.zip Backend -i \
-	"Backend/apps/*" \
-	"Backend/CMPE281_CloudDrive/*" \
-	"Backend/credentials/mysql.cnf" \
-	"Backend/setup/*.service" \
-	"Backend/setup/requirements.txt" \
-	"Backend/manage.py" \
+zip -r server_backend.zip CMPE281-P2-Backend -i \
+	"CMPE281-P2-Backend/apps/*" \
+	"CMPE281-P2-Backend/Backend/*" \
+	"CMPE281-P2-Backend/credentials/mysql.cnf" \
+	"CMPE281-P2-Backend/setup/*.service" \
+	"CMPE281-P2-Backend/setup/requirements.txt" \
+	"CMPE281-P2-Backend/manage.py" \
 
