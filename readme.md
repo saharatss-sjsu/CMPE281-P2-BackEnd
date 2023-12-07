@@ -64,7 +64,7 @@ export PROJECT_DOWNLOAD=https://license-media.saharatss.org/server
 export PROJECT_FILENAME=server_backend_t0ht676t5W4qpsaJPYwR.zip
 export PROJECT_SERVICE_NAME=cmpe281_backend.service
 
-# Unxip
+# Unzip
 
 cd $PROJECT_BASEPATH
 wget $PROJECT_DOWNLOAD/$PROJECT_FILENAME
