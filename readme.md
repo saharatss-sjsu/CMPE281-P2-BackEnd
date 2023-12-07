@@ -102,7 +102,6 @@ echo "Setup done!!"
 In case of running the project locally, skip creating a script and start systemctl service, but run the command below directly within the project folder.
 
 ```bash
-cd $(dirname "$0")
 export DEBUG=True
 export AWS_S3_ACCESS_KEY_ID=
 export AWS_S3_SECRET_ACCESS_KEY=
